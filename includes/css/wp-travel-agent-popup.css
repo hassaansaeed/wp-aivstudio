@@ -1,0 +1,26 @@
+#update-status-popup {
+    position: fixed;
+    top: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #fff;
+    padding: 20px;
+    border: 1px solid #ddd;
+    box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    z-index: 1000;
+}
+
+#update-status-popup form {
+    display: flex;
+    flex-direction: column;
+}
+
+#update-status-popup label,
+#update-status-popup select,
+#update-status-popup button {
+    margin-bottom: 10px;
+}
+
+#update-status-popup button {
+    cursor: pointer;
+}
