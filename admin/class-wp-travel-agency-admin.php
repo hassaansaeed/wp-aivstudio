@@ -36,7 +36,7 @@ class WP_Travel_Agency_Admin {
         
 
     }
-    function dashboard_page()
+    function dashboard_page() //leads-dashboard
     {
         wp_enqueue_script('jquery');
         wp_enqueue_style('bootstrap-css', 'https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css');
@@ -1790,7 +1790,7 @@ class WP_Travel_Agency_Admin {
     
 
     public function statistics_page() {
-       
+
 
         global $wpdb;
         $table_name = $wpdb->prefix . 'leads';
@@ -1818,7 +1818,7 @@ class WP_Travel_Agency_Admin {
                 $month_filter
             );
         }else {
-            
+
             $filter_condition = $wpdb->prepare(
                 " AND MONTH(leads.created_at) = %d AND YEAR(leads.created_at) = %d",
                 $current_month,
@@ -1874,15 +1874,32 @@ class WP_Travel_Agency_Admin {
             );
             $agent_counts[] = (int)$wpdb->get_var($agent_query);
 
-            $response_time_query = $wpdb->prepare(
-                "SELECT AVG(TIMESTAMPDIFF(HOUR, leads.created_at, comments.created_at)) AS avg_time 
-                FROM {$wpdb->prefix}leads_comments AS comments 
-                JOIN $table_name leads ON comments.lead_id = leads.id 
-                WHERE leads.agent_id = %d $filter_condition",
-                $agent->ID
-            );
+//            $response_time_query = $wpdb->prepare(
+//                "SELECT AVG(TIMESTAMPDIFF(HOUR, leads.created_at, comments.created_at)) AS avg_time
+//                FROM {$wpdb->prefix}leads_comments AS comments
+//                JOIN $table_name leads ON comments.lead_id = leads.id
+//                WHERE leads.agent_id = %d $filter_condition",
+//                $agent->ID
+//            );
+
+	        $response_time_query = $wpdb->prepare(
+		        "SELECT AVG(TIMESTAMPDIFF(HOUR, leads.created_at, leads.status_change_time)) AS avg_time 
+                FROM {$wpdb->prefix}leads AS leads 
+                WHERE leads.agent_id = %d AND leads.status_change_time IS NOT NULL $filter_condition",
+		        $agent->ID
+	        );
+
+
+//	        SELECT AVG(TIMESTAMPDIFF(HOUR, leads.created_at, leads.status_change_time)) AS overall_avg_time
+//            FROM {$wpdb->prefix}leads AS leads
+//            WHERE 1=1 $filter_condition
+//                      AND leads.status_change_time is not null;
+
+
             $avg_time_in_minutes = (float)$wpdb->get_var($response_time_query) ?: 0;
             $avg_response_times[] = $avg_time_in_minutes;
+//            var_dump($avg_response_times) ; die;
+
         }
 
         $total_leads_query = "SELECT COUNT(*) AS total FROM $table_name leads WHERE 1=1 $filter_condition";
@@ -1893,25 +1910,33 @@ class WP_Travel_Agency_Admin {
 
         $success_percentage = ($total_leads > 0) ? ($completed_leads / $total_leads) * 100 : 0;
 
-        $overall_response_time_query = "
-        SELECT AVG(TIMESTAMPDIFF(HOUR, leads.created_at, comments.created_at)) AS overall_avg_time
-        FROM {$wpdb->prefix}leads_comments AS comments
-        JOIN $table_name leads ON comments.lead_id = leads.id
-        WHERE 1=1 $filter_condition
+//        $overall_response_time_query = "
+//        SELECT AVG(TIMESTAMPDIFF(HOUR, leads.created_at, comments.created_at)) AS overall_avg_time
+//        FROM {$wpdb->prefix}leads_comments AS comments
+//        JOIN $table_name leads ON comments.lead_id = leads.id
+//        WHERE 1=1 $filter_condition
+//        ";
+
+	    $overall_response_time_query = "
+        SELECT AVG(TIMESTAMPDIFF(HOUR, leads.created_at, leads.status_change_time)) AS overall_avg_time
+            FROM {$wpdb->prefix}leads AS leads
+            WHERE 1=1 $filter_condition
+            AND leads.status_change_time is not null;
         ";
 
-        $overall_avg_response_time = (float)$wpdb->get_var($overall_response_time_query) ?: 0;
+	    $overall_avg_response_time = (float)$wpdb->get_var($overall_response_time_query) ?: 0;
+
+//        var_dump($overall_avg_response_time); die();
 
 
-      
 
-    
-        
-        ob_start();
-        echo '<div class="container-fluid mt-5">'; 
-            echo '<div class="text-center mb-4">'; 
+
+
+	    ob_start();
+        echo '<div class="container-fluid mt-5">';
+            echo '<div class="text-center mb-4">';
                 echo '<h1 class="display-4">' . __( 'Statistics and Graphs', 'wp-travel-agency' ) . '</h1>';
-                echo '<p class="lead text-muted">A detailed overview of leads performance and agent activity</p>'; 
+                echo '<p class="lead text-muted">A detailed overview of leads performance and agent activity</p>';
             echo '</div>';
 
             echo '<div class="mb-4">';
@@ -1944,13 +1969,13 @@ class WP_Travel_Agency_Admin {
             echo '</div>';
             if ($total_leads > 0) {
 
-                
+
                 echo '<div class="row">';
-                    echo '<div class="col-md-6 mb-4">'; 
-                        echo '<div class="card shadow-sm">'; 
+                    echo '<div class="col-md-6 mb-4">';
+                        echo '<div class="card shadow-sm">';
                             echo '<div class="card-body">';
                                 echo '<h2 class="h5 card-title">' . __( 'Leads Status Distribution', 'wp-travel-agency' ) . '</h2>';
-                                
+
                                 echo '<form id="filter-form-leads-status" class="mb-4">';
                                     echo '<div class="form-group">';
                                         echo '<label for="quote_type">' . __( 'Quote Type', 'wp-travel-agency' ) . '</label>';
@@ -1967,26 +1992,26 @@ class WP_Travel_Agency_Admin {
                                             echo '<option value="Travel Insurance Only">' . __( 'Travel Insurance Only', 'wp-travel-agency' ) . '</option>';
                                         echo '</select>';
                                     echo '</div>';
-                    
+
                                     echo '<div class="form-group">';
                                         echo '<label for="agent">' . __( 'Agent', 'wp-travel-agency' ) . '</label>';
                                         echo '<select id="agent" class="form-control form-control-lg">';
                                             echo '<option value="">' . __( 'All', 'wp-travel-agency' ) . '</option>';
-                                            
+
                                             $args = array(
-                                                'role'    => 'agent', 
-                                                'orderby' => 'display_name', 
-                                                'order'   => 'ASC', 
+                                                'role'    => 'agent',
+                                                'orderby' => 'display_name',
+                                                'order'   => 'ASC',
                                             );
                                             $agents = get_users($args);
                                             foreach ($agents as $agent) {
                                                 echo '<option value="' . esc_attr($agent->ID) . '">' . esc_html($agent->display_name) . '</option>';
                                             }
-                                           
+
                                             echo '<!-- Add more agents as needed -->';
                                         echo '</select>';
                                     echo '</div>';
-                    
+
                                     echo '<button style="background-color:#026EB9;color:#fff;font-size:14px;border:solid 2px #026EB9;" type="submit" class="btn btn-primary">' . __( 'Filter', 'wp-travel-agency' ) . '</button>';
                                 echo '</form>';
                                 echo '<div class="chart-container">
@@ -1995,7 +2020,7 @@ class WP_Travel_Agency_Admin {
                             echo '</div>';
                         echo '</div>';
                     echo '</div>';
-                    
+
                         echo '<div class="col-md-6 mb-4">';
                         echo '<div class="card shadow-sm">';
                             echo '<div class="card-body">';
@@ -2015,27 +2040,27 @@ class WP_Travel_Agency_Admin {
                             echo '<div class="card-body">';
                                 echo '<h2 class="h5 card-title">' . __( 'Leads by Quote Type', 'wp-travel-agency' ) . '</h2>';
                                 echo '<form id="filter-form-quote-type" class="mb-4">';
-                               
-                
+
+
                                 echo '<div class="form-group">';
                                     echo '<label for="agent">' . __( 'Agent', 'wp-travel-agency' ) . '</label>';
                                     echo '<select id="agent_quote_type" class="form-control form-control-lg">';
                                         echo '<option value="">' . __( 'All', 'wp-travel-agency' ) . '</option>';
-                                        
+
                                         $args = array(
-                                            'role'    => 'agent', 
-                                            'orderby' => 'display_name', 
-                                            'order'   => 'ASC', 
+                                            'role'    => 'agent',
+                                            'orderby' => 'display_name',
+                                            'order'   => 'ASC',
                                         );
                                         $agents = get_users($args);
                                         foreach ($agents as $agent) {
                                             echo '<option value="' . esc_attr($agent->ID) . '">' . esc_html($agent->display_name) . '</option>';
                                         }
-                                       
+
                                         echo '<!-- Add more agents as needed -->';
                                     echo '</select>';
                                 echo '</div>';
-                
+
                                 echo '<button style="background-color:#026EB9;color:#fff;font-size:14px;border:solid 2px #026EB9;" type="submit" class="btn btn-primary">' . __( 'Filter', 'wp-travel-agency' ) . '</button>';
                             echo '</form>';
                                 echo '<div class="chart-container">
@@ -2044,8 +2069,8 @@ class WP_Travel_Agency_Admin {
                             echo '</div>';
                         echo '</div>';
                     echo '</div>';
-            
-                
+
+
                     echo '<div class="col-md-6 mb-4">';
                         echo '<div class="card shadow-sm">';
                             echo '<div class="card-body">';
@@ -2057,13 +2082,13 @@ class WP_Travel_Agency_Admin {
                         echo '</div>';
                     echo '</div>';
                     echo '</div>';
-                
+
                 echo '<div class="row">';
                     echo '<div class="col-md-6 mb-4">';
                         echo '<div class="card shadow-sm">';
                             echo '<div class="card-body">';
                                 echo '<h2 class="h5 card-title">' . __( 'Average Success Percentage of Leads', 'wp-travel-agency' ) . '</h2>';
-                               
+
                                 echo '<form id="filter-form-leads-status-percentage" class="mb-4">';
                                 echo '<div class="form-group">';
                                     echo '<label for="quote_type">' . __( 'Quote Type', 'wp-travel-agency' ) . '</label>';
@@ -2080,26 +2105,26 @@ class WP_Travel_Agency_Admin {
                                         echo '<option value="Travel Insurance Only">' . __( 'Travel Insurance Only', 'wp-travel-agency' ) . '</option>';
                                     echo '</select>';
                                 echo '</div>';
-                
+
                                 echo '<div class="form-group">';
                                     echo '<label for="agent">' . __( 'Agent', 'wp-travel-agency' ) . '</label>';
                                     echo '<select id="agent_perc" class="form-control form-control-lg">';
                                         echo '<option value="">' . __( 'All', 'wp-travel-agency' ) . '</option>';
-                                        
+
                                         $args = array(
-                                            'role'    => 'agent', 
-                                            'orderby' => 'display_name', 
-                                            'order'   => 'ASC', 
+                                            'role'    => 'agent',
+                                            'orderby' => 'display_name',
+                                            'order'   => 'ASC',
                                         );
                                         $agents = get_users($args);
                                         foreach ($agents as $agent) {
                                             echo '<option value="' . esc_attr($agent->ID) . '">' . esc_html($agent->display_name) . '</option>';
                                         }
-                                       
+
                                         echo '<!-- Add more agents as needed -->';
                                     echo '</select>';
                                 echo '</div>';
-                
+
                                 echo '<button style="background-color:#026EB9;color:#fff;font-size:14px;border:solid 2px #026EB9;" type="submit" class="btn btn-primary">' . __( 'Filter', 'wp-travel-agency' ) . '</button>';
                             echo '</form>';
                                 echo '<div class="chart-container">
@@ -2120,16 +2145,16 @@ class WP_Travel_Agency_Admin {
                     echo '</div>';
                 echo '</div>';
             } else {
-                
+
                 echo '<div class="alert alert-warning text-center">';
                     echo __( 'Not enough leads to generate graphs.', 'wp-travel-agency' );
                 echo '</div>';
             }
-        echo '</div>'; 
-    
-        
+        echo '</div>';
+
+
         echo ob_get_clean();
-    
+
         ?>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script>
@@ -2140,22 +2165,22 @@ class WP_Travel_Agency_Admin {
             }
 
             function generateRandomColors(count) {
-                 return ["#fd7f6f", "#7eb0d5", "#b2e061", "#bd7ebe", "#ffb55a", "#ffee65", "#beb9db", "#fdcce5", "#8bd3c7", "#1a53ff", "#7c1158"]; 
+                 return ["#fd7f6f", "#7eb0d5", "#b2e061", "#bd7ebe", "#ffb55a", "#ffee65", "#beb9db", "#fdcce5", "#8bd3c7", "#1a53ff", "#7c1158"];
             }
 
 
             function getStatusColor(status) {
                 switch (status) {
                     case 'Successful':
-                        return '#28a745';  
+                        return '#28a745';
                     case 'Fail':
-                        return '#dc3545';  
+                        return '#dc3545';
                     case 'Pending':
-                        return '#ffc107';  
+                        return '#ffc107';
                     case 'In Progress':
-                        return '#007bff';  
+                        return '#007bff';
                     default:
-                        return '#6f42c1';  
+                        return '#6f42c1';
                 }
             }
 
@@ -2173,10 +2198,10 @@ class WP_Travel_Agency_Admin {
                     let leadsStatusChart;
 
                     jQuery.ajax({
-                        url: ajaxurl,  
+                        url: ajaxurl,
                         type: 'POST',
                         data: {
-                            action: 'filter_leads_status',  
+                            action: 'filter_leads_status',
                             quote_type: quoteType,
                             agent: agent
                         },
@@ -2184,7 +2209,7 @@ class WP_Travel_Agency_Admin {
                             if (response.success) {
                                 var statuses = response.data.statuses;
                                 var statusCounts = response.data.statusCounts;
-                               
+
                                 var backgroundColors = statuses.map(status => getStatusColor(status));
 
                                 var ctxStatus = document.getElementById('leads-status-chart').getContext('2d');
@@ -2232,26 +2257,26 @@ class WP_Travel_Agency_Admin {
                     var agent = jQuery('#agent_perc').val();
                     let leadsStatusChart;
                     jQuery.ajax({
-                        url: ajaxurl,  
+                        url: ajaxurl,
                         type: 'POST',
                         data: {
-                            action: 'filter_completed_leads_by_quote_type_and_agent',  
+                            action: 'filter_completed_leads_by_quote_type_and_agent',
                             quote_type: quoteType,
                             agent: agent
                         },
-                        
+
                         success: function(response) {
 
                             if (response.success) {
                                 const successPercentage = response.data.successPercentage;
-                                
+
                                 if (Chart.getChart('success-percentage-chart')) {
                                     Chart.getChart('success-percentage-chart').destroy();
                                 }
                                 var ctxSuccessPercentage = document.getElementById('success-percentage-chart').getContext('2d');
 
                                 if (successPercentage !== undefined && successPercentage !== null  ) {
-                                    
+
                                     successPercentageChart = new Chart(ctxSuccessPercentage, {
                                         type: 'pie',
                                         data: {
@@ -2265,11 +2290,11 @@ class WP_Travel_Agency_Admin {
                                         },
                                         options: {
                                             responsive: true,
-                                            plugins: { 
-                                                legend: { 
-                                                    display: true, 
-                                                    position: 'bottom' 
-                                                } 
+                                            plugins: {
+                                                legend: {
+                                                    display: true,
+                                                    position: 'bottom'
+                                                }
                                             }
                                         }
                                     });
@@ -2277,7 +2302,7 @@ class WP_Travel_Agency_Admin {
                                     displayMessage('success-percentage-chart', 'No data available for Success Percentage.');
                                 }
                             }
-                           
+
                         }
 
 
@@ -2288,14 +2313,14 @@ class WP_Travel_Agency_Admin {
                     e.preventDefault();
 
                     var agent = jQuery('#agent_quote_type').val();
-                    
+
                     let leadsStatusChart;
                     jQuery.ajax({
-                        url: ajaxurl,  
+                        url: ajaxurl,
                         type: 'POST',
                         dataType: 'json',
                         data: {
-                            action: 'filter_quote_type_counts_by_agent',  
+                            action: 'filter_quote_type_counts_by_agent',
                             agent: agent
                         },
                         success: function(response) {
@@ -2305,13 +2330,13 @@ class WP_Travel_Agency_Admin {
                                 var ctxQuoteType = document.getElementById('leads-quote-type-chart').getContext('2d');
 
                                 if (Chart.getChart('leads-quote-type-chart')) {
-                                    
+
                                     Chart.getChart('leads-quote-type-chart').destroy();
                                 }
 
-                                
+
                                 if (quoteTypeOptions.length > 0 && quoteTypeCounts.length > 0) {
-                                    
+
                                     leadsQuoteTypeChart = new Chart(ctxQuoteType, {
                                         type: 'bar',
                                         data: {
@@ -2326,7 +2351,7 @@ class WP_Travel_Agency_Admin {
                                             responsive: true,
                                             maintainAspectRatio: false,
                                             plugins: {
-                                                legend: { display: false } 
+                                                legend: { display: false }
                                             },
                                             scales: {
                                                 x: {
@@ -2341,11 +2366,11 @@ class WP_Travel_Agency_Admin {
                                         }
                                     });
                                 } else {
-                                    
+
                                     console.log('No data available to display.');
                                 }
                             } else {
-                                
+
                                 console.error('Failed to retrieve data.');
                             }
                         }
@@ -2992,7 +3017,14 @@ else { $paged = 1; }
         $format = array('%s');
         $where_format = array('%d');
 
-        
+	    $update_data = array('status' => $new_status);
+	    if ($lead_row['status'] !== $new_status) {
+		    $current_timestamp = current_time('timestamp'); // This will give the current time in the site's timezone (e.g., PKR)
+            $adjusted_timestamp = $current_timestamp + (5 * 60 * 60);
+		    $update_data['status_change_time'] = date('Y-m-d H:i:s', $adjusted_timestamp);
+		    $format[] = '%s';
+	    }
+
         if (!empty($agent_id) && $lead_row['agent_id'] != $agent_id) {
             $agent_data = get_userdata($agent_id);
             if ($agent_data) {
